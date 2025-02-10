@@ -9,10 +9,12 @@ import sys
 # Helper Functions (unchanged)
 # ----------------------------
 
+# Function to calculate Extended Haplotype Homozygosity decay (EHH)
 def process_ehh(haplotypes):
     ehh_decay = allel.ehh_decay(haplotypes)
     return np.nanmean(ehh_decay)
 
+# Function to calculate Fay and Wu's H statistic (From Ulas Isildak GitHub)
 def calc_faywu_h(haplotypes):
     n_sam = haplotypes.shape[0]
     counts = haplotypes.sum(axis=0)
@@ -23,6 +25,7 @@ def calc_faywu_h(haplotypes):
     thetaH = np.sum((2 * np.array(S_i) * np.power(i, 2)) / (n_sam * (n_sam - 1.0)))
     return thetaP - thetaH
 
+# Function to calculate Fu and Li's D* statistic (From Ulas Isildak GitHub)
 def calc_fuli_d_star(haplotypes):
     n_sam = haplotypes.shape[0]
     n_pos = haplotypes.shape[1]
@@ -66,26 +69,37 @@ def calc_pi(haplotypes):
     # Average across sites, then multiply by m to get the total differences per pair.
     return np.mean(2 * p * (1 - p)) * m
 
+# Function to calculate Fu and Li's F* statistic (From Ulas Isildak GitHub)
 def calc_fuli_f_star(haplotypes):
     n_sam = haplotypes.shape[0]
     n_pos = haplotypes.shape[1]
+
+    # Precompute harmonic sums
     r = np.arange(1, n_sam)
     an = np.sum(1.0 / r)
     bn = np.sum(1.0 / (r ** 2))
     an1 = an + 1.0 / n_sam
+
+    # Calculate vfs and ufs using precomputed values
     vfs = (((2 * (n_sam ** 3) + 110 * (n_sam ** 2) - 255 * n_sam + 153) /
             (9 * (n_sam ** 2) * (n_sam - 1))) + ((2 * (n_sam - 1) * an) / (n_sam ** 2)) -
            ((8 * bn) / n_sam)) / (an ** 2 + bn)
     ufs = ((n_sam / (n_sam + 1) + (n_sam + 1) / (3 * (n_sam - 1)) - 4 / (n_sam * (n_sam - 1)) +
             ((2 * (n_sam + 1)) / ((n_sam - 1) ** 2)) * (an1 - ((2 * n_sam) / (n_sam + 1)))) / an) - vfs
+    
+    # Calculate pi and ss
     pi_est = calc_pi(haplotypes)
     ss = np.sum(np.sum(haplotypes, axis=0) == 1)
+
+    # Returns Fstar
     return (pi_est - ((n_sam - 1) / n_sam) * ss) / np.sqrt(ufs * n_pos + vfs * (n_pos ** 2))
 
+# Function to calculate Garud's H statistics (H1, H12, H123, H2/H1)
 def process_garuds_h(haplotypes):
     h_stats = allel.garud_h(haplotypes)
     return h_stats[0], h_stats[1], h_stats[2], h_stats[3]
 
+# Function to calculate observed and expected Heterozygosity
 def process_heterozygosity(genotypes):
     obs_het = allel.heterozygosity_observed(genotypes)
     allele_counts = genotypes.count_alleles()
@@ -93,21 +107,27 @@ def process_heterozygosity(genotypes):
     exp_het = allel.heterozygosity_expected(allele_freqs, ploidy=2)
     return np.nanmean(obs_het), np.nanmean(exp_het)
 
+# Function to calculate integrated haplotype score (iHS)
 def process_ihs(haplotypes, positions):
     ihs = allel.ihs(haplotypes, positions, include_edges=True)
     return np.nanmean(ihs)
 
+# Function to calculate and process normalised site-specific log-ratio of EHH (nSL)
 def process_nsl(haplotypes):
     nsl = allel.nsl(haplotypes)
     return np.nanmean(nsl)
 
+# Function to calculate non-central deviation statistic (NCD1) (From Ulas Isildak GitHub)
 def process_ncd1(genotypes):
     allele_counts = genotypes.count_alleles()
     allele_frequencies = allele_counts.to_frequencies()
+
+    # Use only polymorphic sites
     polymorphic_sites = (allele_counts.max_allele() > 0)
     allele_frequencies = allele_frequencies[polymorphic_sites]
     return np.mean(np.abs(allele_frequencies[:, 1] - 0.5))
 
+# Function to calculate raggedness index (from Ulas Isildak GitHub)
 def calc_raggedness(haplotypes):
     n_sam, n_var = haplotypes.shape
     hist = np.zeros(n_var + 1, dtype=np.int64)
@@ -125,10 +145,12 @@ def calc_raggedness(haplotypes):
     rgd += (0 - freqs[max_mist]) ** 2
     return rgd
 
+# Function to calculate Tajima's D
 def process_tajima_d(allele_counts):
     allele_counts = allele_counts[:, :2]
     return allel.tajima_d(allele_counts)
 
+# Function to calculate Zeng's E statistic (from Ulas Isildak GitHub)
 def calc_zeng_e(haplotypes):
     n_sam = haplotypes.shape[0]
     n_pos = haplotypes.shape[1]
